@@ -18,7 +18,7 @@ func init() {
 }
 
 type Server struct {
-	mut sync.Mutex
+	mut sync.RWMutex
 
 	inode map[torus.VolumeID]torus.INodeID
 	vol   torus.VolumeID
@@ -241,8 +241,16 @@ func (t *Client) LockData() {
 	t.srv.mut.Lock()
 }
 
+func (t *Client) RLockData() {
+	t.srv.mut.RLock()
+}
+
 func (t *Client) UnlockData() {
 	t.srv.mut.Unlock()
+}
+
+func (t *Client) RUnlockData() {
+	t.srv.mut.RUnlock()
 }
 
 func (t *Client) GetData(x string) (interface{}, bool) {

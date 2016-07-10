@@ -51,6 +51,21 @@ func (b *blockTempMetadata) Lock(lease int64) error {
 	return nil
 }
 
+func (b *blockTempMetadata) RLock(lease int64) error {
+	b.RLockData()
+	defer b.RUnlockData()
+	v, ok := b.GetData(fmt.Sprint(b.vid))
+	if !ok {
+		return torus.ErrNotExist
+	}
+	d := v.(*blockTempVolumeData)
+	if d.locked != "" {
+		return torus.ErrLocked
+	}
+	d.locked = b.UUID()
+	return nil
+}
+
 func (b *blockTempMetadata) GetINode() (torus.INodeRef, error) {
 	b.LockData()
 	defer b.UnlockData()
@@ -80,6 +95,21 @@ func (b *blockTempMetadata) SyncINode(inode torus.INodeRef) error {
 func (b *blockTempMetadata) Unlock() error {
 	b.LockData()
 	defer b.UnlockData()
+	v, ok := b.GetData(fmt.Sprint(b.vid))
+	if !ok {
+		return torus.ErrNotExist
+	}
+	d := v.(*blockTempVolumeData)
+	if d.locked != b.UUID() {
+		return torus.ErrLocked
+	}
+	d.locked = ""
+	return nil
+}
+
+func (b *blockTempMetadata) RUnlock() error {
+	b.RLockData()
+	defer b.RUnlockData()
 	v, ok := b.GetData(fmt.Sprint(b.vid))
 	if !ok {
 		return torus.ErrNotExist

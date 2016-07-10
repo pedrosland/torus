@@ -93,6 +93,26 @@ func (b *blockEtcd) Lock(lease int64) error {
 	return nil
 }
 
+func (b *blockEtcd) RLock(lease int64) error {
+	if lease == 0 {
+		return torus.ErrInvalid
+	}
+	k := etcd.MkKey("volumemeta", etcd.Uint64ToHex(uint64(b.vid)), "blockreadlock")
+	tx := b.Etcd.Client.Txn(b.getContext()).If(
+		etcdv3.Compare(etcdv3.Version(k), "=", 0),
+	).Then(
+		etcdv3.OpPut(k, b.Etcd.UUID(), etcdv3.WithLease(etcdv3.LeaseID(lease))),
+	)
+	resp, err := tx.Commit()
+	if err != nil {
+		return err
+	}
+	if !resp.Succeeded {
+		return torus.ErrLocked
+	}
+	return nil
+}
+
 func (b *blockEtcd) GetINode() (torus.INodeRef, error) {
 	resp, err := b.Etcd.Client.Get(b.getContext(), etcd.MkKey("volumemeta", etcd.Uint64ToHex(uint64(b.vid)), "blockinode"))
 	if err != nil {
@@ -132,6 +152,25 @@ func (b *blockEtcd) Unlock() error {
 		etcdv3.Compare(etcdv3.Value(k), "=", b.Etcd.UUID()),
 	).Then(
 		etcdv3.OpDelete(etcd.MkKey("volumemeta", etcd.Uint64ToHex(vid), "blocklock")),
+	)
+	resp, err := tx.Commit()
+	if err != nil {
+		return err
+	}
+	if !resp.Succeeded {
+		return torus.ErrLocked
+	}
+	return nil
+}
+
+func (b *blockEtcd) RUnlock() error {
+	vid := uint64(b.vid)
+	k := etcd.MkKey("volumemeta", etcd.Uint64ToHex(vid), "blockreadlock")
+	tx := b.Etcd.Client.Txn(b.getContext()).If(
+		etcdv3.Compare(etcdv3.Version(k), ">", 0),
+		etcdv3.Compare(etcdv3.Value(k), "=", b.Etcd.UUID()),
+	).Then(
+		etcdv3.OpDelete(etcd.MkKey("volumemeta", etcd.Uint64ToHex(vid), "blockreadlock")),
 	)
 	resp, err := tx.Commit()
 	if err != nil {

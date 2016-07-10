@@ -21,7 +21,9 @@ type blockMetadata interface {
 	torus.MetadataService
 
 	Lock(lease int64) error
+	RLock(lease int64) error
 	Unlock() error
+	RUnlock() error
 
 	GetINode() (torus.INodeRef, error)
 	SyncINode(torus.INodeRef) error

@@ -18,6 +18,20 @@ func (s *BlockVolume) OpenBlockFile() (file *BlockFile, err error) {
 	if err = s.mds.Lock(s.srv.Lease()); err != nil {
 		return nil, err
 	}
+	return s.openBlockFile()
+}
+
+func (s *BlockVolume) OpenBlockFileForRead() (file *BlockFile, err error) {
+	if s.volume.Type != VolumeType {
+		panic("Wrong type")
+	}
+	if err = s.mds.RLock(s.srv.Lease()); err != nil {
+		return nil, err
+	}
+	return s.openBlockFile()
+}
+
+func (s *BlockVolume) openBlockFile() (file *BlockFile, err error) {
 	defer func() {
 		// If this function returns an error, attempt to release the lock.
 		// TODO: Log unlock errors?

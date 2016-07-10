@@ -26,9 +26,12 @@ var (
 	}
 
 	serveListenAddress string
+
+	readOnly bool
 )
 
 func init() {
+	nbdCommand.Flags().BoolVarP(&readOnly, "read-only", "r", false, "mount volume read only")
 	rootCommand.AddCommand(nbdCommand)
 
 	nbdServeCommand.Flags().StringVarP(&serveListenAddress, "listen", "l", "0.0.0.0:10809", "nbd server listen address")
@@ -65,7 +68,13 @@ func nbdAction(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	f, err := blockvol.OpenBlockFile()
+	var f *block.BlockFile
+	if readOnly {
+		f, err = blockvol.OpenBlockFileForRead()
+	} else {
+		f, err = blockvol.OpenBlockFile()
+	}
+
 	if err != nil {
 		if err == torus.ErrLocked {
 			fmt.Fprintf(os.Stderr, "volume %s is already mounted on another host\n", args[0])
