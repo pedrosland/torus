@@ -3,6 +3,7 @@ package block
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
 	etcdv3 "github.com/coreos/etcd/clientv3"
@@ -77,11 +78,15 @@ func (b *blockEtcd) Lock(lease int64) error {
 	if lease == 0 {
 		return torus.ErrInvalid
 	}
-	k := etcd.MkKey("volumemeta", etcd.Uint64ToHex(uint64(b.vid)), "blocklock")
+
+	rKey := etcd.MkKey("volumemeta", etcd.Uint64ToHex(uint64(b.vid)), "blockreadlock", strconv.FormatInt(lease, 10))
+	rwKey := etcd.MkKey("volumemeta", etcd.Uint64ToHex(uint64(b.vid)), "blocklock")
 	tx := b.Etcd.Client.Txn(b.getContext()).If(
-		etcdv3.Compare(etcdv3.Version(k), "=", 0),
+		etcdv3.Compare(etcdv3.Version(rKey), "=", 0),
+		etcdv3.Compare(etcdv3.Version(rwKey), "=", 0),
 	).Then(
-		etcdv3.OpPut(k, b.Etcd.UUID(), etcdv3.WithLease(etcdv3.LeaseID(lease))),
+		etcdv3.OpPut(rKey, b.Etcd.UUID(), etcdv3.WithLease(etcdv3.LeaseID(lease))),
+		etcdv3.OpPut(rwKey, b.Etcd.UUID(), etcdv3.WithLease(etcdv3.LeaseID(lease))),
 	)
 	resp, err := tx.Commit()
 	if err != nil {
@@ -97,7 +102,7 @@ func (b *blockEtcd) RLock(lease int64) error {
 	if lease == 0 {
 		return torus.ErrInvalid
 	}
-	k := etcd.MkKey("volumemeta", etcd.Uint64ToHex(uint64(b.vid)), "blockreadlock")
+	k := etcd.MkKey("volumemeta", etcd.Uint64ToHex(uint64(b.vid)), "blockreadlock", strconv.FormatInt(lease, 10))
 	tx := b.Etcd.Client.Txn(b.getContext()).If(
 		etcdv3.Compare(etcdv3.Version(k), "=", 0),
 	).Then(

@@ -18,7 +18,8 @@ func init() {
 }
 
 type Server struct {
-	mut sync.RWMutex
+	mut     sync.Mutex
+	openMut sync.RWMutex
 
 	inode map[torus.VolumeID]torus.INodeID
 	vol   torus.VolumeID
@@ -239,18 +240,20 @@ func (t *Client) WithContext(_ context.Context) torus.MetadataService {
 
 func (t *Client) LockData() {
 	t.srv.mut.Lock()
+	t.srv.openMut.RLock()
 }
 
 func (t *Client) RLockData() {
-	t.srv.mut.RLock()
+	t.srv.openMut.RLock()
 }
 
 func (t *Client) UnlockData() {
+	t.srv.openMut.RUnlock()
 	t.srv.mut.Unlock()
 }
 
 func (t *Client) RUnlockData() {
-	t.srv.mut.RUnlock()
+	t.srv.openMut.RUnlock()
 }
 
 func (t *Client) GetData(x string) (interface{}, bool) {
